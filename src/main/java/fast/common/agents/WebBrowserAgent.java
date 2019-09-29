@@ -5,20 +5,24 @@ import com.esotericsoftware.yamlbeans.YamlReader;
 import cucumber.api.java.it.Ma;
 import fast.common.context.CommonStepResult;
 import fast.common.context.StepResult;
+import fast.common.context.WebStepResult;
 import fast.common.core.Configurator;
 import fast.common.logging.FastLogger;
 
 import gherkin.formatter.model.Step;
 import org.apache.commons.io.FileUtils;
+import org.mockito.internal.matchers.Null;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.htmlunit.HtmlUnitDriver;
 import org.openqa.selenium.ie.InternetExplorerDriver;
+import org.openqa.selenium.interactions.Action;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.remote.BrowserType;
 import org.openqa.selenium.remote.CapabilityType;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
 import javax.swing.*;
@@ -27,10 +31,9 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.lang.reflect.Constructor;
 import java.net.URL;
+import java.security.Key;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -537,6 +540,385 @@ public class WebBrowserAgent extends Agent {
         _waitElementVisible(xpath).sendKeys(text);
     }
 
+    /**
+    Checks whether the given text is visible in the specified web element
+     */
+
+    public void seeTextControl(String text, String controlName) throws Exception {
+        String xpath = getRepoElementValue(controlName);
+        xpath =xpath + String.format("[contains(text(),'%s')]",text);
+        _waitElementVisible(xpath);
+    }
+
+    /**
+     * click alert button
+     */
+    public void checkClickAlert(String alertButtonName) throws Exception {
+        String xpath = getRepoElementValue(alertButtonName);
+        WebElement el = null;
+        try {
+            el = _waitElementVisible(xpath);
+        } catch (Exception e) {
+            _logger.error("Exception occurs when checkClickAlert. " + e.getMessage());
+        }
+        if (el != null)
+            el.click();
+    }
+
+    /**
+     * Clears the content of the specified control
+     */
+    public void clearInputControl(String controlName) throws Exception{
+        String xpath =getRepoElementValue(controlName);
+        WebElement el= _waitElementVisible(xpath);
+        el.clear();
+    }
+
+    /**
+     * Switch to a specified iframe
+     */
+    public void switchFrame(String frameName){_driver.switchTo().frame(frameName);}
+
+    /**
+     * Switch to default content from iframe
+     *
+     */
+    public void switchToDefault(String frameName){_driver.switchTo().defaultContent();}
+
+    /**
+     * Moves the mouse to a specified element
+     */
+    public void moveTo(String controlName) throws Exception{
+        String xpath=(isXpath(controlName))?controlName:getRepoElementValue(controlName);
+        WebElement el =_waitElementVisible(xpath);
+        Actions action =new Actions(_driver);
+        action.moveToElement(el).perform();
+    }
+    /**
+     * Selects an item by a given value from the specified control
+     */
+
+    public void selectItem(String controlName,String optionValue) throws Exception{
+        String xpath =getRepoElementValue(controlName);
+        WebElement el=_waitElementVisible(xpath);
+        Select select=new Select(el);
+        select.selectByValue(optionValue);
+    }
+    /**
+     * deselect an item by a specified value
+     */
+    public void deselectAllItems(String controlName) throws Exception{
+        String xpath =getRepoElementValue(controlName);
+        WebElement el=_waitElementVisible(xpath);
+        Select select=new Select(el);
+        select.deselectAll();
+    }
+
+    /**
+     * Counts the number of specified web elements with same Xpath or css selector
+     *
+     */
+    public StepResult counterElement(String controlName) throws Exception{
+        String xpath = getRepoElementValue(controlName);
+        List<WebElement> elements;
+        if (isXpath(xpath)){
+            elements = _driver.findElements(By.xpath(xpath));
+        }else{
+            elements =_driver.findElements(By.cssSelector(xpath));
+        }
+        CommonStepResult result =new CommonStepResult();
+        result.setFieldValue(String.valueOf(elements.size()));
+        return result;
+    }
+
+    /**
+    Click a control with a dynamic index on web page
+     */
+    public void clickWithIndex(String index,String controlName) throws Throwable{
+        String path =getRepoElementValue(controlName);
+        String xpath =path.replaceAll(DYNAMIC_INDEX,index);
+        WebElement el =_waitElementVisible(xpath);
+        el.click();
+    }
+
+    /**
+     *Press the specified hot key
+     */
+    public void pressHotKey(String keyName){
+        Actions actions =new Actions(_driver);
+        if(!keyName.contains("+")){
+            actions.sendKeys(Keys.valueOf(keyName)).perform();
+        }else{
+            String[] keys =keyName.split("\\+");
+            Keys firstKey = Keys.valueOf(keys[0].trim());
+            String secondPart =keys[1].trim();
+            if(secondPart.length()==1){
+                actions.keyDown(firstKey).sendKeys(secondPart.toLowerCase()).keyUp(firstKey).perform();
+            }else{
+                Keys secondKey =Keys.valueOf(secondPart);
+                actions.keyDown(firstKey).sendKeys(secondKey).keyUp(firstKey).perform();
+            }
+        }
+    }
+
+    /**
+     * Presses the specified hot key on giving control
+     */
+    public void pressHotKeyOnControl(String keyName,String controlName) throws Exception{
+        pressHotKeyOnControlWithIndex(keyName,controlName,"");
+    }
+
+    /**
+     *
+     * @param keyName
+     * @param controlName
+     */
+    public void pressHotKeyOnControlWithIndex(String keyName, String controlName, String index) throws Exception {
+        String path=(isXpath(controlName))?controlName:getRepoElementValue(controlName);
+        String xpath =index.isEmpty()?path:path.replaceAll(DYNAMIC_INDEX,index);
+        WebElement el =locateElement(xpath);
+        if(!keyName.contains("+")){
+            el.sendKeys(Keys.valueOf(keyName));
+        }else{
+            String[] keys =keyName.split("\\+");
+            Keys firstKey = Keys.valueOf(keys[0].trim());
+            String secondPart =keys[1].trim();
+            if(secondPart.length()==1){
+                el.sendKeys(firstKey,secondPart.toLowerCase());
+            }else{
+                Keys secondKey =Keys.valueOf(secondPart);
+                el.sendKeys(firstKey,secondKey);
+            }
+        }
+    }
+
+    /**
+     * Find the first web lement by Xpath
+     * @param path
+     * @return
+     */
+    public WebElement locateElement(String path) {
+        WebElement el;
+        if(isXpath(path)){
+            el =_driver.findElement(By.xpath(path));
+        }else{
+            el =_driver.findElement(By.cssSelector(path));
+        }
+        return el;
+    }
+    /**
+     * Grabs a web element and drag it on an given offset of a target element
+     * @param controlName1 a web element will be moving
+     * @param controlName2 a target element
+     * @param x horizontal move offset of the target element
+     * @param y vertical move offset of the target element
+     *
+     */
+    public void dragandDrop(String controlName1,String controlName2,String x,String y) throws Exception{
+        String xpath1= getRepoElementValue(controlName1);
+        WebElement dragElement =locateElement(xpath1);
+
+        String xpath2 = getRepoElementValue(controlName2);
+        WebElement dropElement=locateElement(xpath2);
+        Point initialPosition = dropElement.getLocation();
+        Actions a =new Actions(_driver);
+        Point targetPosition=new Point(initialPosition.getX()+Integer.parseInt(x),initialPosition.getY()+Integer.parseInt(y));
+        a.dragAndDropBy(dragElement,targetPosition.getX(),targetPosition.getY()).perform();
+
+    }
+
+    /**
+     * Scroll page to specified position
+     * @param widthOffset width offset
+     * @param heightOffset height offset
+     */
+    public void scrollPage(int widthOffset,int heightOffset) throws InterruptedException{
+        JavascriptExecutor js =(JavascriptExecutor)_driver;
+        waitDocumentReady(100,_timeout);
+        String script ="window,scrollTo("+ widthOffset+","+heightOffset+")";
+        js.executeScript(script);
+    }
+
+    private void waitDocumentReady(int retryMs, int timeout) throws InterruptedException {
+        int retries=0;
+        String state=null;
+        do{
+            if (retries * retryMs >_timeout*1000){
+                throw new TimeoutException();
+            }else{
+                Thread.sleep(retryMs);
+                state = getDocumentReadyState();
+            }
+            retries++;
+        }while (!state.equals("complete"));
+    }
+
+    public String getDocumentReadyState() {
+        JavascriptExecutor js=(JavascriptExecutor)_driver;
+        String getStateScript ="return document.readyState";
+        return (String) js.executeScript(getStateScript);
+    }
+
+    /**
+     * Get attribute value of a web element
+     * @param controlName the name of the specified web element
+     * @param attributName the name of the attribute
+     * @return attribute value
+     */
+    public StepResult readAttributValue(String controlName,String attributName) throws Exception{
+        String path =getRepoElementValue(controlName);
+        WebElement el=locateElement(path);
+        String value =el.getAttribute(attributName);
+        CommonStepResult result=new CommonStepResult();
+        result.setFieldValue(value);
+        return result;
+    }
+
+    /**
+     * Move back in a web browser
+     */
+
+    public void navigateBack(){_driver.navigate().back();}
+    /**
+     * Move forward in a web browser
+     */
+
+    public void forward(){_driver.navigate().forward();}
+    /**
+     * Refresh in a web browser
+     */
+
+    public void refresh(){_driver.navigate().refresh();}
+
+    /**
+     * Get the innerText of a specified web element
+     */
+    public StepResult readTextOnControl(String controlName) throws Exception{
+        String path =(isXpath(controlName))? controlName: getRepoElementValue(controlName);
+        WebElement el=locateElement(path);
+        String value =el.getText();
+        CommonStepResult result= new CommonStepResult();
+        result.setFieldValue(value);
+        return result;
+    }
+
+    /**
+     * create a new tab and open a new page with giving url
+     */
+    public void createNewTab(String url){
+        JavascriptExecutor js=(JavascriptExecutor) _driver;
+        String script="window.open(\""+url+"\")";
+        js.executeScript(script);
+    }
+    /**
+     * change from current tab to next new tab
+     */
+
+    public void changeTonNextTab(){
+        ArrayList<String> handles=new ArrayList<>(_driver.getWindowHandles());
+        if(handles.isEmpty()){
+            throw new NullPointerException("No tab currently.");
+        }
+        int currentWindowIndex= handles.indexOf(_driver.getWindowHandle());
+        if(currentWindowIndex==handles.size()-1){
+            throw new NullPointerException("No next tab.");
+        }
+        String nextHandler =handles.get(currentWindowIndex+1);
+        _driver.switchTo().window(nextHandler);
+    }
+    /**
+     * change from current tab to last older tab
+     */
+    public void changeToLastTab(){
+        ArrayList<String> handles=new ArrayList<>(_driver.getWindowHandles());
+        if(handles.isEmpty()){
+            throw new NullPointerException("No tab currently.");
+        }
+        int currentWindowIndex= handles.indexOf(_driver.getWindowHandle());
+        if(currentWindowIndex==0){
+            throw new NullPointerException("No next tab.");
+        }
+        String nextHandler =handles.get(currentWindowIndex-1);
+        _driver.switchTo().window(nextHandler);
+    }
+    /**
+     * close current tab
+     */
+
+    public void closeCurrentTab(){
+        if(_driver !=null){
+            if (_driver.getWindowHandles().size()==1){
+                _driver.quit();
+                _driver=null;
+            }else{
+                _driver.close();
+            }
+        }
+    }
+
+    /**
+     * Read attribuValue With Index
+     */
+    public StepResult readAttributValueWithIndex(String controlName,String attributName,String index) throws Exception{
+        String path = getRepoElementValue(controlName);
+        String xpath =path.replaceAll(DYNAMIC_INDEX,index);
+        WebElement el=locateElement(xpath);
+        String value =el.getAttribute(attributName);
+        CommonStepResult result=new CommonStepResult();
+        result.setFieldValue(value);
+        return result;
+    }
+
+    /**
+     * read a control with a dynamic index on web page
+     */
+    public StepResult readTextWithIndex(String controlName, String index) throws Throwable{
+        String path =(isXpath(controlName))? controlName :getRepoElementValue(controlName);
+        String xpath =path.replaceAll(DYNAMIC_INDEX,index);
+        WebElement el=locateElement(xpath);
+        String value=el.getText();
+        CommonStepResult result=new CommonStepResult();
+        result.setFieldValue(value);
+        return result;
+    }
+
+    /**
+     * type a control with a dynamic index on web page
+     */
+    public void typeTextWithIndex(String index ,String controlName,String text) throws Throwable {
+        String path=(isXpath(controlName))? controlName:getRepoElementValue(controlName);
+        String xpath = path.replaceAll(DYNAMIC_INDEX,index);
+        WebElement el=_waitElementVisible(xpath);
+        el.sendKeys(text);
+    }
+
+    /**
+     * Gets all the innerText of a specified web element
+     * @see fast.common.glue.GuiCommonStepDefs#readAllTextOnControl(String, String)
+     */
+
+    public StepResult readAllTextOnControl(String controlName) throws Exception{
+        String path =(isXpath(controlName))? controlName: getRepoElementValue(controlName);
+        ArrayList<String> values =new ArrayList<>();
+        List<WebElement> elements= locateElements(path);
+        for (WebElement el:elements){
+            values.add(el.getText());
+        }
+        WebStepResult result =new WebStepResult();
+        result.setFieldValues(values);
+        return result;
+
+    }
+
+    private List<WebElement> locateElements(String path) {
+        List<WebElement> elements;
+        if(isXpath(path)){
+            elements = _driver.findElements(By.xpath(path));
+        }else {
+            elements= _driver.findElements(By.cssSelector(path));
+        }
+        return elements;
+    }
 
 
 }

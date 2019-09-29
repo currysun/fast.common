@@ -8,6 +8,9 @@ import cucumber.api.java.en.When;
 import fast.common.agents.AgentsManager;
 import fast.common.context.StepResult;
 import fast.common.logging.FastLogger;
+import gherkin.formatter.model.Step;
+
+import java.util.List;
 
 
 public class GuiCommonStepDefs extends BaseCommonStepDefs{
@@ -124,4 +127,51 @@ public class GuiCommonStepDefs extends BaseCommonStepDefs{
         String processedControlName =getScenarioContext().processString(controlName);
         AgentsManager.getInstance().getOrCreateAgent(agentName).run("typeTextIntoControl",processedText,processedControlName);
     }
+
+    @Then("^(\\w+) read all text from (@?\\w+) into List")
+    public List<String> readAllTextOnControl(String agentName, String controlName) throws Throwable{
+        String processControlName =(controlName.startsWith("@"))? getScenarioContext()
+                .processString(controlName+".Value"):controlName;
+        StepResult result =AgentsManager.getInstance().getOrCreateAgent(agentName).runWithResult("readAllTextOnControl",
+                processControlName);
+        return  result.getFieldValues(StepResult.DEFAULT_FIELD_VALUE);
+    }
+    @When("^(\\w+) scroll current page to width:([-\\+]?[\\d]+) height:([-\\+])?[\\d]+]$")
+    public void scrollPage(String agentName,int widthOffset, int heightOffset) throws Exception{
+        AgentsManager.getInstance().getOrCreateAgent(agentName).run("scrollPage",widthOffset,heightOffset);
+    }
+
+    @When("^(\\w+) scroll on ([\\w\\.+] by offset ([-\\+]?[\\d]+))$")
+    public void scrollPage(String agentName,String controlName, String offset) throws Exception{
+        String processedControlName =getScenarioContext().processString(controlName);
+        String processOffset =getScenarioContext().processString(offset);
+        AgentsManager.getInstance().getOrCreateAgent(agentName).run("scrollTo",processedControlName,processOffset);
+    }
+
+    /**
+     *
+     * @param agentName
+     * @param controlName1
+     * @param controlName2
+     * @param x
+     * @param y
+     * <pre>When WebAgent drag from Change and drop to ReportArea by offset 300,300<pre/>
+     * @throws Exception
+     */
+    @When("^(\\w+) drag from ([\\w\\.]+) and drop to ([\\w\\.]+) by offset ([-\\+]?[\\d]+),([-\\+]?[\\d]+)$")
+    public void dragAndDrop(String agentName,String controlName1,String controlName2,String x,String y) throws Exception{
+        String processedControlName1 =getScenarioContext().processString(controlName1);
+        String processedControlName2 =getScenarioContext().processString(controlName2);
+        AgentsManager.getInstance().getOrCreateAgent(agentName).run("dragAndDrop",processedControlName1,processedControlName2);
+    }
+
+    @When("^(\\w+) mouse over to control (@?\\w+)$")
+    public void moveTo(String agentName,String controlName) throws Throwable{
+        String processControlName = (controlName.contains("@")) ? getScenarioContext()
+                .processString(controlName+".Value"):controlName;
+        AgentsManager.getInstance().getOrCreateAgent(agentName).run("moveTo",processControlName);
+    }
+
+
+
 }

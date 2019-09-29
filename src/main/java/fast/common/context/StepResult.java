@@ -17,8 +17,8 @@ public abstract class StepResult {
     public static final String STEP_RESULT_SKIP ="SKIPPED";
 
     private Status status;
-    private Status log;
-    private Status failedMessage;
+    private String log;
+    private String failedMessage;
 
     public Status getStatus() {
         return status;
@@ -28,19 +28,19 @@ public abstract class StepResult {
         this.status = status;
     }
 
-    public Status getLog() {
+    public String getLog() {
         return log;
     }
 
-    public void setLog(Status log) {
+    public void setLog(String log) {
         this.log = log;
     }
 
-    public Status getFailedMessage() {
+    public String getFailedMessage() {
         return failedMessage;
     }
 
-    public void setFailedMessage(Status failedMessage) {
+    public void setFailedMessage(String failedMessage) {
         this.failedMessage = failedMessage;
     }
 
